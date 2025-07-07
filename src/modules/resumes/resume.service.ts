@@ -1,15 +1,20 @@
 import { eq, and, or, ilike, desc, asc, count, sql } from 'drizzle-orm';
-import { db } from '../../db/db.js'; // Adjust path as needed
-import { resumes, users, matches } from '../../db/schema.js'; // Adjust path as needed
+import { db } from '../../db/db.js';
+import { resumes, users, matches } from '../../db/schema.js';
 import type {
   Resume,
   ResumeWithUser,
   ResumeAnalysis,
-  ResumeSearchInput,
   ServiceResponse,
   PaginatedResponse,
-  UploadResult,
 } from '../../types.js';
+
+import {
+  uploadResumeSchema,
+  uuidSchema,
+  resumeAnalysisSchema,
+  resumeSearchSchema,
+} from '../../validator.js';
 
 export class ResumeService {
   /**
@@ -17,17 +22,20 @@ export class ResumeService {
    */
   async createResume(userId: string, fileUrl: string): Promise<ServiceResponse<Resume>> {
     try {
+      const { userId: validUserId, fileUrl: validFileUrl } =
+        uploadResumeSchema.parse({ userId, fileUrl });
+
       const [resume] = await db
         .insert(resumes)
         .values({
-          userId,
-          fileUrl,
+          userId: validUserId,
+          fileUrl: validFileUrl,
         })
         .returning();
 
       return {
         success: true,
-        data: resume,
+        data: { ...resume, userId: validUserId },
       };
     } catch (error) {
       return {
@@ -48,17 +56,25 @@ export class ResumeService {
         .from(resumes)
         .where(eq(resumes.id, id));
 
-      if (!resume) {
+      if (!resume || !resume.userId) {
         return {
           success: false,
-          error: 'Resume not found',
+          error: 'Resume not found or invalid',
           code: 'RESUME_NOT_FOUND',
         };
       }
 
+      const parsedUserId = uuidSchema.parse(resume.userId);
+      const parsedAnalysis =
+        resume.analysis !== null ? resumeAnalysisSchema.parse(resume.analysis) : null;
+
       return {
         success: true,
-        data: resume,
+        data: {
+          ...resume,
+          userId: parsedUserId,
+          analysis: parsedAnalysis,
+        },
       };
     } catch (error) {
       return {
@@ -94,20 +110,21 @@ export class ResumeService {
       if (!result || !result.userId || !result.user) {
         return {
           success: false,
-          error: 'Resume not found',
+          error: 'Resume not found or invalid',
           code: 'RESUME_NOT_FOUND',
         };
       }
 
+      const parsedUserId = uuidSchema.parse(result.userId);
+      const parsedAnalysis =
+        result.analysis !== null ? resumeAnalysisSchema.parse(result.analysis) : null;
+
       return {
         success: true,
         data: {
-          id: result.id,
-          userId: result.userId,
-          fileUrl: result.fileUrl,
-          analysis: result.analysis as ResumeAnalysis | null,
-          createdAt: result.createdAt,
-          user: result.user,
+          ...result,
+          userId: parsedUserId,
+          analysis: parsedAnalysis,
         },
       };
     } catch (error) {
@@ -124,15 +141,21 @@ export class ResumeService {
    */
   async getResumesByUserId(userId: string): Promise<ServiceResponse<Resume[]>> {
     try {
+      const validUserId = uuidSchema.parse(userId);
+
       const userResumes = await db
         .select()
         .from(resumes)
-        .where(eq(resumes.userId, userId))
+        .where(eq(resumes.userId, validUserId))
         .orderBy(desc(resumes.createdAt));
 
       return {
         success: true,
-        data: userResumes,
+        data: userResumes.map(r => ({
+          ...r,
+          userId: validUserId,
+          analysis: r.analysis ? resumeAnalysisSchema.parse(r.analysis) : null,
+        })),
       };
     } catch (error) {
       return {
@@ -148,23 +171,29 @@ export class ResumeService {
    */
   async updateResumeAnalysis(id: string, analysis: ResumeAnalysis): Promise<ServiceResponse<Resume>> {
     try {
+      const parsedAnalysis = resumeAnalysisSchema.parse(analysis);
+
       const [resume] = await db
         .update(resumes)
-        .set({ analysis })
+        .set({ analysis: parsedAnalysis })
         .where(eq(resumes.id, id))
         .returning();
 
-      if (!resume) {
+      if (!resume || !resume.userId) {
         return {
           success: false,
-          error: 'Resume not found',
+          error: 'Resume not found or invalid',
           code: 'RESUME_NOT_FOUND',
         };
       }
 
       return {
         success: true,
-        data: resume,
+        data: {
+          ...resume,
+          userId: uuidSchema.parse(resume.userId),
+          analysis: parsedAnalysis,
+        },
       };
     } catch (error) {
       return {
@@ -180,23 +209,28 @@ export class ResumeService {
    */
   async updateResumeFile(id: string, fileUrl: string): Promise<ServiceResponse<Resume>> {
     try {
+      const validFileUrl = uploadResumeSchema.shape.fileUrl.parse(fileUrl);
+
       const [resume] = await db
         .update(resumes)
-        .set({ fileUrl })
+        .set({ fileUrl: validFileUrl })
         .where(eq(resumes.id, id))
         .returning();
 
-      if (!resume) {
+      if (!resume || !resume.userId) {
         return {
           success: false,
-          error: 'Resume not found',
+          error: 'Resume not found or invalid',
           code: 'RESUME_NOT_FOUND',
         };
       }
 
       return {
         success: true,
-        data: resume,
+        data: {
+          ...resume,
+          userId: uuidSchema.parse(resume.userId),
+        },
       };
     } catch (error) {
       return {
@@ -212,10 +246,8 @@ export class ResumeService {
    */
   async deleteResume(id: string): Promise<ServiceResponse<void>> {
     try {
-      // First delete associated matches
       await db.delete(matches).where(eq(matches.resumeId, id));
 
-      // Then delete the resume
       const [deletedResume] = await db
         .delete(resumes)
         .where(eq(resumes.id, id))
@@ -229,9 +261,7 @@ export class ResumeService {
         };
       }
 
-      return {
-        success: true,
-      };
+      return { success: true };
     } catch (error) {
       return {
         success: false,
@@ -244,7 +274,7 @@ export class ResumeService {
   /**
    * Search resumes with pagination
    */
-  async searchResumes(searchOptions: ResumeSearchInput): Promise<ServiceResponse<PaginatedResponse<ResumeWithUser>>> {
+  async searchResumes(searchOptions: any): Promise<ServiceResponse<PaginatedResponse<ResumeWithUser>>> {
     try {
       const {
         query,
@@ -253,14 +283,11 @@ export class ResumeService {
         limit = 10,
         sortBy = 'createdAt',
         sortOrder = 'desc',
-        minScore,
-        maxScore,
         hasAnalysis,
-      } = searchOptions;
+      } = resumeSearchSchema.parse(searchOptions);
 
       const offset = (page - 1) * limit;
 
-      // Build where conditions
       const whereConditions = [];
 
       if (query) {
@@ -272,12 +299,11 @@ export class ResumeService {
         );
       }
 
-      if (skills && skills.length > 0) {
-        // Check if any of the requested skills are in the resume's analysis
-        const skillsConditions = skills.map(skill => 
+      if (skills?.length) {
+        const skillConditions = skills.map(skill =>
           sql`${resumes.analysis}::text ILIKE ${`%${skill}%`}`
         );
-        whereConditions.push(or(...skillsConditions));
+        whereConditions.push(or(...skillConditions));
       }
 
       if (hasAnalysis !== undefined) {
@@ -288,28 +314,17 @@ export class ResumeService {
         }
       }
 
-      // Score filtering would need to be implemented with matches table
-      // For now, we'll skip minScore and maxScore filtering
+      const whereClause = whereConditions.length ? and(...whereConditions) : undefined;
 
-      const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+      const orderByClause =
+        sortOrder === 'asc' ? asc(resumes.createdAt) : desc(resumes.createdAt);
 
-      // Build order by clause
-      const orderByClause = (() => {
-        switch (sortBy) {
-          case 'createdAt':
-          default:
-            return sortOrder === 'asc' ? asc(resumes.createdAt) : desc(resumes.createdAt);
-        }
-      })();
-
-      // Get total count
       const [{ count: totalCount }] = await db
         .select({ count: count() })
         .from(resumes)
         .leftJoin(users, eq(resumes.userId, users.id))
         .where(whereClause);
 
-      // Get paginated results
       const results = await db
         .select({
           id: resumes.id,
@@ -330,14 +345,11 @@ export class ResumeService {
         .limit(limit)
         .offset(offset);
 
-      const resumesWithUser = results.map(result => ({
-        id: result.id,
-        userId: result.userId!,
-        fileUrl: result.fileUrl,
-        analysis: result.analysis as ResumeAnalysis | null,
-        createdAt: result.createdAt,
-        user: result.user!,
-      })).filter(resume => resume.userId && resume.user);
+      const resumesWithUser = results.map(r => ({
+        ...r,
+        userId: uuidSchema.parse(r.userId!),
+        analysis: r.analysis ? resumeAnalysisSchema.parse(r.analysis) : null,
+      }));
 
       const totalPages = Math.ceil(totalCount / limit);
 
@@ -376,7 +388,7 @@ export class ResumeService {
         .from(resumes)
         .where(eq(resumes.id, resumeId));
 
-      if (!resume || !resume.userId) {
+      if (!resume?.userId) {
         return {
           success: false,
           error: 'Resume not found',
@@ -384,9 +396,11 @@ export class ResumeService {
         };
       }
 
+      const ownerId = uuidSchema.parse(resume.userId);
+
       return {
         success: true,
-        data: resume.userId === userId,
+        data: ownerId === userId,
       };
     } catch (error) {
       return {
