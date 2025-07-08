@@ -13,7 +13,7 @@ export const users = pgTable("users", {
 // Resumes table
 export const resumes = pgTable("resumes", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   fileUrl: varchar("file_url", { length: 500 }).notNull(),
   analysis: jsonb("analysis"), // stores AI feedback
   // embedding: vector("embedding", { dimensions: 1536 }),  for semantic search
