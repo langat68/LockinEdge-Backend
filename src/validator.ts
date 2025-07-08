@@ -49,7 +49,7 @@ export const updatePasswordSchema = z.object({
 // 🔷 Resume validators
 //
 export const uploadResumeSchema = z.object({
-  fileUrl: urlSchema,
+  file: z.instanceof(File), // Expect a File object
   userId: uuidSchema,
 });
 

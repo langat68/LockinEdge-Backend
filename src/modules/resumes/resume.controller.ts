@@ -4,8 +4,11 @@ import { uploadResumeSchema, updateResumeSchema, uuidSchema } from "../../types.
 
 export class ResumeController {
   static async upload(ctx: Context) {
-    const body = await ctx.req.json();
-    const parsed = uploadResumeSchema.safeParse(body);
+    const body = await ctx.req.parseBody();
+    const file = body.file as File;
+    const userId = body.userId as string;
+
+    const parsed = uploadResumeSchema.safeParse({ file, userId });
 
     if (!parsed.success) {
       return ctx.json({ success: false, message: "Validation error", errors: parsed.error.format() }, 400);

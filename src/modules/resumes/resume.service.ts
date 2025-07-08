@@ -2,6 +2,13 @@ import { db } from "../../db/db.js";
 import { resumes, users } from "../../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import type { Resume, ResumeWithUser, ResumeAnalysisInput, ResumeAnalysis } from "../../types.js";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "resumes");
+
+// Ensure upload directory exists
+fs.mkdir(UPLOAD_DIR, { recursive: true }).catch(console.error);
 
 /**
  * Normalize a raw DB resume row to a valid Resume type.
@@ -23,12 +30,26 @@ export class ResumeService {
   /**
    * Upload a new resume.
    */
-  static async uploadResume(data: { fileUrl: string; userId: string }): Promise<Resume> {
+  static async uploadResume(data: { file: File; userId: string }): Promise<Resume> {
+    const uniqueFilename = `${data.userId}-${Date.now()}-${data.file.name}`;
+    const filePath = path.join(UPLOAD_DIR, uniqueFilename);
+
+    // Save the file to disk
+    await fs.writeFile(filePath, Buffer.from(await data.file.arrayBuffer()));
+
+    // Placeholder for AI analysis
+    const aiAnalysis: ResumeAnalysis = {
+      skills: ["JavaScript", "TypeScript", "Node.js"],
+      experience: 5,
+      summary: "Placeholder AI summary of the resume.",
+    };
+
     const [resume] = await db
       .insert(resumes)
       .values({
-        fileUrl: data.fileUrl,
+        fileUrl: `/uploads/resumes/${uniqueFilename}`,
         userId: data.userId,
+        analysis: aiAnalysis as any, // Drizzle doesn't have a direct JSON type, so cast to any
       })
       .returning();
 

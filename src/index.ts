@@ -1,9 +1,13 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
+import { logger } from 'hono/logger'
 import authRoutes from '../src/modules/auth/auth.route.js'
 import resumRoutes from '../src/modules/resumes/resume.route.js'
 
 const app = new Hono()
+
+// Add logger middleware
+app.use('*', logger())
 
 // to check if the server is reaching the endpoint
 app.get('/', (c) => {
@@ -12,7 +16,7 @@ app.get('/', (c) => {
 
 // Mount auth routes
 app.route('/auth', authRoutes)
-app.route('/resume',resumRoutes)
+app.route('/resume', resumRoutes)
 
 serve({
   fetch: app.fetch,

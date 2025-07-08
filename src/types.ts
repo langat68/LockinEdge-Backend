@@ -307,3 +307,28 @@ export interface LoginData {
   email: string;
   password: string;
 }
+
+// 🧱 Base Job Type (Matches schema)
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string | null;
+  description: string | null;
+  skills: string[] | null; // changed from string[] | null → consistent with validator default
+  createdAt: Date | null;
+}
+
+// 🧩 Jobs with match records
+export interface JobWithMatches extends Job {
+  matches: Match[];
+}
+
+// 📄 Job creation DTO (used in service, route, scraper)
+export interface CreateJobData {
+  title: string;
+  company: string;
+  location?: string;
+  description?: string;
+  skills?: string[];
+}
