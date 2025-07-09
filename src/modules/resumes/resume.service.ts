@@ -4,11 +4,57 @@ import { eq, and } from "drizzle-orm";
 import type { Resume, ResumeWithUser, ResumeAnalysisInput, ResumeAnalysis } from "../../types.js";
 import fs from "node:fs/promises";
 import path from "node:path";
+import pdf from "pdf-parse";
+import mammoth from "mammoth";
+import OpenAI from "openai";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "resumes");
 
 // Ensure upload directory exists
 fs.mkdir(UPLOAD_DIR, { recursive: true }).catch(console.error);
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+async function extractTextFromFile(filePath: string, fileType: string): Promise<string> {
+  if (fileType === "application/pdf") {
+    const dataBuffer = await fs.readFile(filePath);
+    const data = await pdf(dataBuffer);
+    return data.text;
+  } else if (
+    fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    const data = await mammoth.extractRawText({ path: filePath });
+    return data.value;
+  } else {
+    throw new Error("Unsupported file type");
+  }
+}
+
+async function analyzeResumeWithAI(resumeText: string): Promise<ResumeAnalysis> {
+  const prompt = `
+    Analyze the following resume and extract the following information in JSON format:
+    - skills: An array of strings representing the candidate's skills.
+    - experience: A number representing the total years of experience.
+    - education: An array of objects, each with 'degree', 'institution', and 'year'.
+    - summary: A brief summary of the candidate's profile.
+    - strengths: An array of strings highlighting the candidate's strengths.
+    - improvements: An array of strings suggesting areas for improvement.
+
+    Resume:
+    ${resumeText}
+  `;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+  });
+
+  const analysis = JSON.parse(response.choices[0].message.content || "{}");
+  return analysis;
+}
 
 /**
  * Normalize a raw DB resume row to a valid Resume type.
@@ -37,12 +83,11 @@ export class ResumeService {
     // Save the file to disk
     await fs.writeFile(filePath, Buffer.from(await data.file.arrayBuffer()));
 
-    // Placeholder for AI analysis
-    const aiAnalysis: ResumeAnalysis = {
-      skills: ["JavaScript", "TypeScript", "Node.js"],
-      experience: 5,
-      summary: "Placeholder AI summary of the resume.",
-    };
+    // Extract text from the file
+    const resumeText = await extractTextFromFile(filePath, data.file.type);
+
+    // Analyze the resume with AI
+    const aiAnalysis = await analyzeResumeWithAI(resumeText);
 
     const [resume] = await db
       .insert(resumes)

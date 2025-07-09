@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import authRoutes from '../src/modules/auth/auth.route.js'
 import resumRoutes from '../src/modules/resumes/resume.route.js'
+import {jobRoutes} from '../src/modules/jobs/jobs.route.js'
 
 const app = new Hono()
 
@@ -17,6 +18,7 @@ app.get('/', (c) => {
 // Mount auth routes
 app.route('/auth', authRoutes)
 app.route('/resume', resumRoutes)
+app.route('/', jobRoutes)
 
 serve({
   fetch: app.fetch,
