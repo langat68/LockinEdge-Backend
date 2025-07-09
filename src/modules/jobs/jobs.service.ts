@@ -7,6 +7,7 @@ import type {
   JobSearchOptions,
   ResumeAnalysis,
 } from '../../types.js';
+import puppeteer from 'puppeteer';
 
 export async function createJob(data: CreateJobInput) {
   const [job] = await db.insert(jobs).values(data).returning();
@@ -113,4 +114,37 @@ export async function matchJobsWithResume(
   }
 
   return matchedJobs;
+}
+
+export async function scrapeAndStoreJobs() {
+  console.log("Scraping jobs...");
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+  await page.goto("https://www.indeed.com/q-software-developer-l-USA-jobs.html", { waitUntil: "networkidle2" });
+
+  const jobData = await page.evaluate(() => {
+    const jobs = [];
+    const jobElements = document.querySelectorAll(".job_seen_beacon");
+
+    for (const jobElement of jobElements) {
+      const title = (jobElement.querySelector(".jobTitle > a") as HTMLElement)?.innerText;
+      const company = (jobElement.querySelector("[data-testid='company-name']") as HTMLElement)?.innerText;
+      const location = (jobElement.querySelector("[data-testid='text-location']") as HTMLElement)?.innerText;
+      const description = (jobElement.querySelector(".job-snippet") as HTMLElement)?.innerText;
+
+      if (title && company) {
+        jobs.push({ title, company, location, description });
+      }
+    }
+
+    return jobs;
+  });
+
+  await browser.close();
+
+  for (const job of jobData) {
+    await createJob(job);
+  }
+
+  console.log(`Scraped and stored ${jobData.length} jobs.`);
 }

@@ -4,6 +4,7 @@ import { logger } from 'hono/logger'
 import authRoutes from '../src/modules/auth/auth.route.js'
 import resumRoutes from '../src/modules/resumes/resume.route.js'
 import {jobRoutes} from '../src/modules/jobs/jobs.route.js'
+import './scheduler.js';
 
 const app = new Hono()
 
