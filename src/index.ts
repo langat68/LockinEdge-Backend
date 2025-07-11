@@ -1,29 +1,40 @@
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { logger } from 'hono/logger'
-import authRoutes from '../src/modules/auth/auth.route.js'
-import resumRoutes from '../src/modules/resumes/resume.route.js'
-import {jobRoutes} from '../src/modules/jobs/jobs.route.js'
+
+import 'dotenv/config';
+
+import { serve } from '@hono/node-server';
+import { Hono } from 'hono';
+import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
+
+// Import your routes
+import authRoutes from './modules/auth/auth.route.js';
+import resumeRoutes from './modules/resumes/resume.route.js';
+import { jobRoutes } from './modules/jobs/jobs.route.js';
 import './scheduler.js';
 
-const app = new Hono()
+const app = new Hono();
 
-// Add logger middleware
-app.use('*', logger())
+// 🌟 Middlewares
+app.use('*', logger());
+app.use('*', cors()); // Enable CORS for all routes
 
-// to check if the server is reaching the endpoint
+// 🌟 Health check endpoint
 app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
+  return c.text('✅ Server is running. Hello Hono!');
+});
 
-// Mount auth routes
-app.route('/auth', authRoutes)
-app.route('/resume', resumRoutes)
-app.route('/', jobRoutes)
+// 🌟 Mount your feature routes
+app.route('/auth', authRoutes);
+app.route('/resume', resumeRoutes);
+app.route('/', jobRoutes);
 
-serve({
-  fetch: app.fetch,
-  port: 3000
-}, (info) => {
-  console.log(`Server is running on http://localhost:${info.port}`)
-})
+// 🌟 Start the server
+serve(
+  {
+    fetch: app.fetch,
+    port: 3000,
+  },
+  (info) => {
+    console.log(`🚀 Server is running on http://localhost:${info.port}`);
+  }
+);
