@@ -6,11 +6,11 @@ import { eq } from "drizzle-orm";
 
 config(); // load .env
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-console.log("✅ Using OpenAI (gpt-4o) for resume analysis");
+console.log("✅ Using DeepSeek-R1 (via OpenRouter) for resume analysis");
 
-async function analyzeResumeWithOpenAI(resumeText: string): Promise<ResumeAnalysis> {
+async function analyzeResumeWithOpenRouter(resumeText: string): Promise<ResumeAnalysis> {
   const prompt = `
 You are a resume analysis assistant. Analyze the following resume and extract the following information in valid JSON format ONLY (no extra explanation, no backticks):
 
@@ -27,16 +27,16 @@ Resume:
 ${resumeText}
 `;
 
-  const url = "https://api.openai.com/v1/chat/completions";
+  const url = "https://openrouter.ai/api/v1/chat/completions";
 
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o", // or "gpt-3.5-turbo"
+      model: "deepseek/deepseek-r1:free", // Free DeepSeek model
       messages: [
         { role: "system", content: "You are an expert resume analyst." },
         { role: "user", content: prompt },
@@ -47,7 +47,7 @@ ${resumeText}
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
+    throw new Error(`OpenRouter API error: ${response.status} - ${errText}`);
   }
 
   const data = await response.json();
@@ -59,7 +59,7 @@ ${resumeText}
     return analysis;
   } catch (err) {
     throw new Error(
-      `❌ Failed to parse OpenAI response: ${content}`
+      `❌ Failed to parse OpenRouter response: ${content}`
     );
   }
 }
@@ -85,7 +85,7 @@ export class ResumeService {
     fileUrl: string;
     resumeText: string;
   }): Promise<Resume> {
-    const aiAnalysis = await analyzeResumeWithOpenAI(data.resumeText);
+    const aiAnalysis = await analyzeResumeWithOpenRouter(data.resumeText);
 
     const [resume] = await db
       .insert(resumes)
