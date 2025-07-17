@@ -1,10 +1,12 @@
 import type { Context } from "hono";
 import { ResumeService } from "./resume.service.js";
+import { RecommendationService } from "./reccomendationservice.js";
 import { uploadResumeSchema, updateResumeSchema, uuidSchema } from "../../types.js";
 import path from "node:path";
 import fs from "node:fs/promises";
 import pdf from "pdf-parse";
 import mammoth from "mammoth";
+import { generatePdf } from "./pdf.service.js";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "resumes");
 
@@ -28,7 +30,6 @@ async function extractTextFromBuffer(buffer: Buffer, fileType: string): Promise<
 export class ResumeController {
   static async upload(ctx: Context) {
     const formData = await ctx.req.formData();
-
     const file = formData.get("file") as File | null;
     const userId = formData.get("userId") as string | null;
 
@@ -37,7 +38,6 @@ export class ResumeController {
     }
 
     const parsed = uploadResumeSchema.safeParse({ file, userId });
-
     if (!parsed.success) {
       return ctx.json({ success: false, message: "Validation error", errors: parsed.error.format() }, 400);
     }
@@ -111,5 +111,58 @@ export class ResumeController {
   static async list(ctx: Context) {
     const resumes = await ResumeService.listResumes();
     return ctx.json({ success: true, data: resumes });
+  }
+
+  static async download(ctx: Context) {
+    const { id } = ctx.req.param();
+    const parsed = uuidSchema.safeParse(id);
+
+    if (!parsed.success) {
+      return ctx.json({ success: false, message: "Invalid resume ID", errors: parsed.error.format() }, 400);
+    }
+
+    const resume = await ResumeService.getResumeById(id);
+    if (!resume) {
+      return ctx.json({ success: false, message: "Resume not found" }, 404);
+    }
+
+    const pdfBuffer = await generatePdf(resume);
+
+    ctx.header("Content-Type", "application/pdf");
+    ctx.header("Content-Disposition", `attachment; filename=resume-${id}.pdf`);
+    return ctx.body(pdfBuffer);
+  }
+
+  static async generateRecommendations(ctx: Context) {
+    const { id } = ctx.req.param();
+    const parsed = uuidSchema.safeParse(id);
+
+    if (!parsed.success) {
+      return ctx.json({ success: false, message: "Invalid resume ID", errors: parsed.error.format() }, 400);
+    }
+
+    try {
+      const recommendations = await RecommendationService.generateRecommendations(id);
+
+      if (!recommendations || recommendations.length === 0) {
+        return ctx.json({
+          success: true,
+          message: "No strong job matches found.",
+          data: [],
+        });
+      }
+
+      return ctx.json({ success: true, data: recommendations });
+    } catch (err) {
+      console.error(err);
+      return ctx.json(
+        {
+          success: false,
+          message: "Failed to generate recommendations",
+          error: (err as Error).message,
+        },
+        500
+      );
+    }
   }
 }
