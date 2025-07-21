@@ -17,24 +17,26 @@ const app = new Hono();
 app.use('*', logger());
 
 // ✅ CORS — explicitly allow frontend origins
-app.use('*', cors({
-  origin: (origin) => {
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'https://lockin-edge.vercel.app/', // replace with your deployed frontend if any
-    ];
+app.use(
+  '*',
+  cors({
+    origin: (origin) => {
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'https://lockin-edge.vercel.app', // removed trailing /
+      ];
 
-    if (origin && allowedOrigins.includes(origin)) {
-      return origin;
-    }
+      if (origin && allowedOrigins.includes(origin)) {
+        return origin; // ✅ allow this origin
+      }
 
-    // Optional: block other origins
-    return ''; // no access if origin not allowed
-  },
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 600,
-}));
+      return null; // 🚫 block if not allowed
+    },
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 600,
+  })
+);
 
 // 🌟 Health check endpoint
 app.get('/', (c) => {
