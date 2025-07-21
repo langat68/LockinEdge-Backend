@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 
 import { serve } from '@hono/node-server';
@@ -16,7 +15,26 @@ const app = new Hono();
 
 // 🌟 Middlewares
 app.use('*', logger());
-app.use('*', cors()); // Enable CORS for all routes
+
+// ✅ CORS — explicitly allow frontend origins
+app.use('*', cors({
+  origin: (origin) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://your-frontend-domain.com', // replace with your deployed frontend if any
+    ];
+
+    if (origin && allowedOrigins.includes(origin)) {
+      return origin;
+    }
+
+    // Optional: block other origins
+    return ''; // no access if origin not allowed
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600,
+}));
 
 // 🌟 Health check endpoint
 app.get('/', (c) => {
