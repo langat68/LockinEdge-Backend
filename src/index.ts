@@ -21,7 +21,7 @@ app.use('*', cors({
   origin: (origin) => {
     const allowedOrigins = [
       'http://localhost:5173',
-      'https://your-frontend-domain.com', // replace with your deployed frontend if any
+      'https://lockin-edge.vercel.app/', // replace with your deployed frontend if any
     ];
 
     if (origin && allowedOrigins.includes(origin)) {
