@@ -23,7 +23,7 @@ app.use(
     origin: (origin) => {
       const allowedOrigins = [
         'http://localhost:5173',
-        'https://lockin-edge.vercel.app', // removed trailing /
+        'https://lockin-edge.vercel.app', 
       ];
 
       if (origin && allowedOrigins.includes(origin)) {
