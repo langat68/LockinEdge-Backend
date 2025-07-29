@@ -7,6 +7,7 @@ const app = new Hono();
 // Public routes
 app.post('/register', AuthController.register);
 app.post('/login', AuthController.login);
+app.post('/google', AuthController.googleLogin); // ✅ NEW: Google OAuth endpoint
 app.post('/logout', AuthController.logout);
 
 // Protected routes

@@ -1,12 +1,12 @@
-import {pgTable,uuid,varchar,timestamp,jsonb,real,} from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, jsonb, real } from "drizzle-orm/pg-core";
 
-
-
-// Users table
+// Users table (Updated for Google OAuth)
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  passwordHash: varchar("password_hash", { length: 255 }), // ✅ Made nullable for Google users
+  googleId: varchar("google_id", { length: 255 }), // ✅ Added for Google OAuth
+  name: varchar("name", { length: 255 }), // ✅ Added for user display name
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -40,3 +40,7 @@ export const matches = pgTable("matches", {
   score: real("score"), // relevance score from AI
   matchedAt: timestamp("matched_at").defaultNow(),
 });
+
+// Types
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;

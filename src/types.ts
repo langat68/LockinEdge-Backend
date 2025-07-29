@@ -5,12 +5,13 @@ export interface User {
   passwordHash: string;
   createdAt: Date | null;
 }
-
 export interface UserPublic {
   id: string;
   email: string;
+  name: string | null;
   createdAt: Date | null;
 }
+
 
 export interface Resume {
   id: string;

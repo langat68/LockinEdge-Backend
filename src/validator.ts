@@ -45,6 +45,11 @@ export const updatePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
+// ✅ NEW: Google OAuth validation
+export const googleAuthSchema = z.object({
+  token: z.string().min(1, 'Google token is required'),
+});
+
 //
 // 🔷 Resume validators
 //
@@ -160,6 +165,7 @@ export const dateRangeSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
+export type GoogleAuthInput = z.infer<typeof googleAuthSchema>; // ✅ NEW
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 export type UpdateJobInput = z.infer<typeof updateJobSchema>;
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;
