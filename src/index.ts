@@ -16,16 +16,30 @@ app.use('*', logger());
 
 // ✅ Updated security headers for Google Sign-In
 app.use('*', async (c, next) => {
-  // For Google OAuth, we need to allow popups to communicate back
-  c.header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  const origin = c.req.header('origin');
+  const referer = c.req.header('referer');
   
-  // Allow embedding for OAuth flows
+  // Define your trusted frontend domains
+  const trustedDomains = [
+    'http://localhost:5173',
+    'https://lockin-edge.vercel.app'
+  ];
+  
+  // Check if request is from a trusted domain
+  const isTrustedOrigin = origin && trustedDomains.includes(origin);
+  const isTrustedReferer = referer && trustedDomains.some(domain => referer.startsWith(domain));
+  
+  if (isTrustedOrigin || isTrustedReferer) {
+    // Relaxed policy for trusted domains (allows Google OAuth popups)
+    c.header('Cross-Origin-Opener-Policy', 'unsafe-none');
+  } else {
+    // Strict policy for other domains
+    c.header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  }
+  
+  // Keep your other headers
   c.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  
-  // Additional headers for OAuth compatibility
   c.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  
-  // Prevent clickjacking but allow OAuth
   c.header('X-Frame-Options', 'SAMEORIGIN');
   
   await next();
