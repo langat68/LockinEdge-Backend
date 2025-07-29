@@ -11,51 +11,26 @@ import './scheduler.js';
 
 const app = new Hono();
 
-// Logger
+// Logger middleware
 app.use('*', logger());
 
-// ✅ Environment-aware CORS configuration
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [
-      'https://lockin-edge.vercel.app',  // Production frontend
-      process.env.FRONTEND_URL,          // From environment variable
-    ].filter(Boolean)
-  : [
-      'http://localhost:5173',           // Vite dev server
-      'http://localhost:3000',           // Same origin (for testing)
-      'https://lockin-edge.vercel.app',  // Also allow production in dev for testing
-    ];
-
+// ✅ CORS setup for both local and Vercel frontend domains
 app.use('*', cors({
-  origin: allowedOrigins, // ✅ Simple array approach
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  credentials: true, // ✅ Important for OAuth flows
-  exposeHeaders: ['Set-Cookie'], // ✅ If you're using cookies
+  origin: ['http://localhost:5173', 'https://lockin-edge.vercel.app'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Allow cookies/headers for Google OAuth or session tokens
 }));
 
-// ✅ Add specific headers for OAuth/popup handling
-app.use('*', async (c, next) => {
-  // Set COOP header to allow popups to communicate
-  c.header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  c.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  
-  await next();
-});
-
-// Routes
+// Root route
 app.get('/', (c) => c.text('✅ Server is running. Hello Hono!'));
+
+// App routes
 app.route('/auth', authRoutes);
 app.route('/resume', resumeRoutes);
 app.route('/', jobRoutes);
 
-// Error Handling
+// Custom error handler
 app.onError((err, c) => {
   console.error('Server Error:', err);
   if (err.name === 'ValidationError') {
@@ -67,13 +42,12 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal server error' }, 500);
 });
 
-// 404
+// 404 handler
 app.notFound((c) => c.json({ error: 'Route not found' }, 404));
 
-// Start
+// Start the server
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`🚀 Server is running on http://localhost:${info.port}`);
   console.log(`🔐 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 Allowed origins:`, allowedOrigins);
 });
