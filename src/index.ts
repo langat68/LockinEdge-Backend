@@ -14,23 +14,23 @@ const app = new Hono();
 // Logger middleware
 app.use('*', logger());
 
-// ✅ CORS setup for both local and Vercel frontend domains
+// ✅ CORS config for deployed frontend on Vercel
 app.use('*', cors({
-  origin: ['http://localhost:5173', 'https://lockin-edge.vercel.app'],
+  origin: ['https://lockin-edge.vercel.app'], // ✅ Only allow your Vercel frontend
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // Allow cookies/headers for Google OAuth or session tokens
+  credentials: true, // ✅ Needed for cookies or Google OAuth
 }));
 
-// Root route
-app.get('/', (c) => c.text('✅ Server is running. Hello Hono!'));
+// Basic route for testing
+app.get('/', (c) => c.text('✅ Server is running on Render. Hello from Hono!'));
 
-// App routes
+// Application routes
 app.route('/auth', authRoutes);
 app.route('/resume', resumeRoutes);
 app.route('/', jobRoutes);
 
-// Custom error handler
+// Error handling
 app.onError((err, c) => {
   console.error('Server Error:', err);
   if (err.name === 'ValidationError') {
@@ -42,12 +42,13 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal server error' }, 500);
 });
 
-// 404 handler
+// 404 Not Found handler
 app.notFound((c) => c.json({ error: 'Route not found' }, 404));
 
 // Start the server
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`🚀 Server is running on http://localhost:${info.port}`);
+  console.log(`🌍 Public URL: https://lockinedge-backend-8.onrender.com`);
   console.log(`🔐 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
