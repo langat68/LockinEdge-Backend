@@ -501,8 +501,7 @@ export async function scrapeCorporateStaffingJobs() {
           company: job.company,
           location: job.location,
           description: job.description,
-          jobType: null,
-          salary: null
+
         });
         storedCount++;
       } catch (error) {
@@ -696,8 +695,7 @@ export async function scrapeMyJobMagJobs() {
             company: job.company,
             location: job.location,
             description: job.description,
-            jobType: null,
-            salary: null
+
           });
           storedCount++;
         }
